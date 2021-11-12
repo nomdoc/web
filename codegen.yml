@@ -1,0 +1,7 @@
+schema: http://localhost:4000/graph
+generates:
+  ./libs/schema.d.ts:
+    plugins:
+      - typescript
+      - typescript-operations
+      - typescript-resolvers

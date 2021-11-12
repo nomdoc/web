@@ -1,0 +1,19 @@
+# The directory Yarn / NPM downloads your dependencies sources to.
+node_modules
+
+# VSCode Workspace
+.vscode
+
+# A folder for you to write down your thoughts, ideas or whatever.
+.notes
+
+# Dotenv files
+.env
+
+# The directory NextJS will write artifacts to
+/.next/
+/out/
+
+# Misc.
+.DS_Store
+*.log
