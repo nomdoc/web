@@ -12,6 +12,7 @@ import React, {
 } from "react"
 import { fetcher } from "./fetcher"
 import { logger } from "./logger"
+import { RECAPTCHA_READY, useRecaptcha } from "./use-recaptcha"
 import {
   getSessionStorageItem,
   parseCookies,
@@ -41,25 +42,16 @@ let hasRetrievedInitialAccessToken = false
 
 export const SESSION_STATUS_STORAGE_KEY = "sessionStatus"
 
-/**
- * Logs user in.
- *
- * @param newAccessToken The newly obtained access token.
- * @param newAccessTokenExpiredAt The expiration timestamp of the access token.
- */
 function putAuthenticated(
   newAccessToken: string,
   newAccessTokenExpiredAt: number
-): void {
+) {
   accessToken = newAccessToken
   accessTokenExpiredAt = newAccessTokenExpiredAt
   setSessionStorageItem(SESSION_STATUS_STORAGE_KEY, AUTHENTICATED)
 }
 
-/**
- * Logs user out.
- */
-function putUnauthenticated(): void {
+function putUnauthenticated() {
   accessToken = undefined
   accessTokenExpiredAt = undefined
   setSessionStorageItem(SESSION_STATUS_STORAGE_KEY, UNAUTHENTICATED)
@@ -257,17 +249,9 @@ function SessionProvider(props: SessionProviderProps): JSX.Element {
   )
 }
 
-export type LoginWithTokenReturn = {
-  emailAddress: string
-}
+export type LoginWithTokenReturn = Record<string, never>
 
-export type VerifyLoginTokenReturn = {
-  refreshToken: string
-  accessToken: string
-  accessTokenExpiredAt: number
-}
-
-export type VerifyGoogleIdTokenReturn = {
+export type VerifyPasswordReturn = {
   refreshToken: string
   accessToken: string
   accessTokenExpiredAt: number
@@ -278,15 +262,14 @@ export type UseSessionProps = {
 }
 
 export type UseSessionReturn = SessionContextProps & {
-  loginWithToken(
-    emailAddress: string
-  ): Promise<AxiosResponse<LoginWithTokenReturn>>
-  verifyLoginToken(
-    token: string
-  ): Promise<AxiosResponse<VerifyLoginTokenReturn>>
-  verifyGoogleIdToken(
-    token: string
-  ): Promise<AxiosResponse<VerifyGoogleIdTokenReturn>>
+  registerAccount(
+    emailAddress: string,
+    password: string
+  ): Promise<AxiosResponse<LoginWithTokenReturn, unknown>>
+  loginWithPassword(
+    emailAddress: string,
+    password: string
+  ): Promise<AxiosResponse<VerifyPasswordReturn, unknown>>
   logout(): Promise<AxiosResponse>
 }
 
@@ -294,15 +277,16 @@ function useSession(props: UseSessionProps = {}): UseSessionReturn {
   const { required = false } = props
   const sessionContext = useContext(SessionContext)
   const router = useRouter()
+  const { status: recaptchaStatus, execute: executeRecaptcha } = useRecaptcha()
 
   if (sessionContext === undefined) {
     throw new Error(`useSession must be used within a SessionProvider.`)
   }
 
-  const { status } = sessionContext
+  const { status: sessionStatus } = sessionContext
 
   useEffect(() => {
-    if (required && status === UNAUTHENTICATED) {
+    if (required && sessionStatus === UNAUTHENTICATED) {
       const { publicRuntimeConfig } = getConfig()
 
       router.push(
@@ -311,63 +295,65 @@ function useSession(props: UseSessionProps = {}): UseSessionReturn {
         )}`
       )
     }
-  }, [required, status, router])
+  }, [required, sessionStatus, router])
 
-  const loginWithToken = useCallback(
-    (emailAddress: string) => {
-      if (status === UNAUTHENTICATED) {
-        return fetcher.post<LoginWithTokenReturn>("/oauth/authorize", {
-          responseType: "login_token",
-          emailAddress,
-        })
+  const registerAccount = useCallback(
+    async (emailAddress: string, password: string) => {
+      if (sessionStatus !== UNAUTHENTICATED) {
+        return Promise.reject(new Error("Already logged in."))
       }
 
-      return Promise.reject(new Error("Already logged in."))
+      if (recaptchaStatus !== RECAPTCHA_READY) {
+        return Promise.reject(new Error("Recaptcha is not ready."))
+      }
+
+      const recaptchaToken = await executeRecaptcha("register_account")
+
+      return fetcher.post<LoginWithTokenReturn>("/accounts/register", {
+        emailAddress,
+        password,
+        recaptchaToken,
+      })
     },
-    [status]
+    [sessionStatus, recaptchaStatus, executeRecaptcha]
   )
 
-  const verifyLoginToken = useCallback(
-    (loginToken: string) => {
-      if (status === UNAUTHENTICATED) {
-        return fetcher.post<VerifyLoginTokenReturn>("/oauth/token", {
-          grantType: "login_token",
-          loginToken,
-        })
+  const loginWithPassword = useCallback(
+    async (emailAddress: string, password: string) => {
+      if (sessionStatus !== UNAUTHENTICATED) {
+        return Promise.reject(new Error("Already logged in."))
       }
 
-      return Promise.reject(new Error("Already logged in."))
-    },
-    [status]
-  )
-
-  const verifyGoogleIdToken = useCallback(
-    (googleIdToken: string) => {
-      if (status === UNAUTHENTICATED) {
-        return fetcher.post<VerifyLoginTokenReturn>("/oauth/token", {
-          grantType: "google_id_token",
-          googleIdToken,
-        })
+      if (recaptchaStatus !== RECAPTCHA_READY) {
+        return Promise.reject(new Error("Recaptcha is not ready."))
       }
 
-      return Promise.reject(new Error("Already logged in."))
+      const recaptchaToken = await executeRecaptcha("login")
+
+      const res = await fetcher.post<VerifyPasswordReturn>("/oauth/token", {
+        grantType: "password",
+        emailAddress,
+        password,
+        recaptchaToken,
+      })
+
+      putAuthenticated(res.data.accessToken, res.data.accessTokenExpiredAt)
+
+      return res
     },
-    [status]
+    [sessionStatus, recaptchaStatus, executeRecaptcha]
   )
 
   const logout = useCallback(() => {
-    if (status === AUTHENTICATED) {
-      return fetcher.post("/oauth/revoke")
-    }
+    if (sessionStatus !== UNAUTHENTICATED) return null
 
-    return null
-  }, [status])
+    return fetcher.post("/oauth/revoke")
+  }, [sessionStatus])
 
   return {
     ...sessionContext,
-    loginWithToken,
-    verifyLoginToken,
-    verifyGoogleIdToken,
+    registerAccount,
+    loginWithPassword,
     logout,
   }
 }
@@ -436,8 +422,6 @@ export {
   SessionProvider,
   useSession,
   getSession,
-  putAuthenticated,
-  putUnauthenticated,
   setRefreshTokenCookie,
   getStatusFromStorage,
 }

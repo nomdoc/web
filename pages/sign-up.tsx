@@ -20,28 +20,32 @@ import {
 } from "../libs/errors"
 import { AUTHENTICATED, useSession } from "../libs/session"
 import { RECAPTCHA_READY, useRecaptcha } from "../libs/use-recaptcha"
-import { emailAddressRegex } from "../libs/utils"
+import { emailAddressRegex, passwordRegex } from "../libs/utils"
 
+const NAME_INPUT = "name"
 const EMAIL_ADDRESS_INPUT = "emailAddress"
 const PASSWORD_INPUT = "password"
 
-const loginFormSchema = ss.object({
+const signUpFormSchema = ss.object({
+  [NAME_INPUT]: ss.nonempty(ss.trimmed(ss.string())),
   [EMAIL_ADDRESS_INPUT]: ss.nonempty(
     ss.pattern(ss.trimmed(ss.string()), emailAddressRegex())
   ),
-  [PASSWORD_INPUT]: ss.nonempty(ss.trimmed(ss.string())),
+  [PASSWORD_INPUT]: ss.nonempty(
+    ss.pattern(ss.trimmed(ss.string()), passwordRegex())
+  ),
 })
 
-export type LoginFormPayload = Infer<typeof loginFormSchema>
+export type SignUpFormPayload = Infer<typeof signUpFormSchema>
 
-function Login(): JSX.Element {
+function SignUp(): JSX.Element {
   const recaptcha = useRecaptcha()
   const { push: pushRoute } = useRouter()
   const session = useSession()
   const { status: sessionStatus } = session
   const form = useForm({
     mode: "all",
-    resolver: superstructResolver(loginFormSchema),
+    resolver: superstructResolver(signUpFormSchema),
   })
 
   const {
@@ -78,14 +82,14 @@ function Login(): JSX.Element {
     }
   }
 
-  async function handleSubmit(data: LoginFormPayload) {
+  async function handleSubmit(data: SignUpFormPayload) {
     try {
-      await session.loginWithPassword(
+      await session.registerAccount(
         data[EMAIL_ADDRESS_INPUT],
         data[PASSWORD_INPUT]
       )
 
-      pushRoute("/jobs")
+      pushRoute("/login")
     } catch (err) {
       handleError(err, {
         onResponseError: handleResponseError,
@@ -111,11 +115,11 @@ function Login(): JSX.Element {
         />
 
         <h2 className="mt-6 text-3xl font-extrabold text-gray-700 text-center">
-          Log in to your account
+          Welcome to Nomdoc
         </h2>
 
         <p className="mt-2 text-base text-gray-700 text-center">
-          Welcome back! Please enter your details.
+          Create an account to start applying or posting jobs.
         </p>
 
         <div className="mt-12">
@@ -127,6 +131,15 @@ function Login(): JSX.Element {
           <FormProvider {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)}>
               <fieldset className="space-y-4">
+                <div>
+                  <InputLabel htmlFor={NAME_INPUT} title="Name" />
+                  <InputField
+                    type="string"
+                    name={NAME_INPUT}
+                    placeholder="John Smith"
+                  />
+                  <InputError htmlFor={NAME_INPUT} fieldName="Name" />
+                </div>
                 <div>
                   <InputLabel
                     htmlFor={EMAIL_ADDRESS_INPUT}
@@ -147,9 +160,13 @@ function Login(): JSX.Element {
                   <InputField
                     type="password"
                     name={PASSWORD_INPUT}
-                    placeholder="Your secret password"
+                    placeholder="Choose a password"
                   />
-                  <InputError htmlFor={PASSWORD_INPUT} fieldName="Password" />
+                  <InputError
+                    htmlFor={PASSWORD_INPUT}
+                    fieldName="Password"
+                    message="Password must contain at least 12 characters, one lowercase alphabet, one uppercase alphabet, one number and one special character."
+                  />
                 </div>
               </fieldset>
               <Button
@@ -163,12 +180,11 @@ function Login(): JSX.Element {
                     : "idle"
                 }
                 type="submit"
-                text="Log in"
+                text="Sign up"
                 className="w-full mt-12"
               />
               <p className="mt-4 text-base text-gray-700 text-center">
-                Don&apos;t have an account?{" "}
-                <Link href="/sign-up">Sign up here.</Link>
+                Already have an account? <Link href="/login">Log in here.</Link>
               </p>
             </form>
           </FormProvider>
@@ -178,4 +194,4 @@ function Login(): JSX.Element {
   )
 }
 
-export default Login
+export default SignUp

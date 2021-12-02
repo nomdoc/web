@@ -66,6 +66,11 @@ function emailAddressRegex() {
   return /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
 }
 
+function passwordRegex() {
+  // Copied from https://stackoverflow.com/a/19605207/3372087
+  return /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{12,}$/
+}
+
 export {
   getSessionStorageItem,
   globMatch,
@@ -75,4 +80,5 @@ export {
   removeSessionStorageItem,
   setSessionStorageItem,
   emailAddressRegex,
+  passwordRegex,
 }

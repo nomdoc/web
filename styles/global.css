@@ -31,6 +31,17 @@ body {
 
 /**
  * ==============================================
+ * Hide Recaptcha Badge
+ * See https://cloud.google.com/recaptcha-enterprise/docs/faq#id_like_to_hide_the_badge_what_is_allowed
+ * ==============================================
+ */
+
+.grecaptcha-badge {
+  visibility: hidden;
+}
+
+/**
+ * ==============================================
  * PinCodeInput indicator blink
  * ==============================================
  */

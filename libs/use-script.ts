@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react"
 
-export type Status = "idle" | "loading" | "ready" | "error"
+export const SCRIPT_IDLE = "A"
+export const SCRIPT_LOADING = "B"
+export const SCRIPT_READY = "C"
+export const SCRIPT_ERROR = "D"
+
+export type Status =
+  | typeof SCRIPT_IDLE
+  | typeof SCRIPT_LOADING
+  | typeof SCRIPT_READY
+  | typeof SCRIPT_ERROR
 
 export type UseScriptOptions = {
   defer?: boolean
@@ -8,13 +17,15 @@ export type UseScriptOptions = {
 
 function useScript(src: string, opts: UseScriptOptions = {}): Status {
   const { defer = false } = opts
-  const [status, setStatus] = useState<Status>(src ? "loading" : "idle")
+  const [status, setStatus] = useState<Status>(
+    src ? SCRIPT_LOADING : SCRIPT_IDLE
+  )
 
   useEffect(() => {
     // Allow falsy src value if waiting on other data needed for
     // constructing the script URL passed to this hook.
     if (!src) {
-      setStatus("idle")
+      setStatus(SCRIPT_IDLE)
       return undefined
     }
 
@@ -31,7 +42,7 @@ function useScript(src: string, opts: UseScriptOptions = {}): Status {
 
       script.setAttribute(
         "data-status",
-        event.type === "load" ? "ready" : "error"
+        event.type === "load" ? SCRIPT_READY : SCRIPT_ERROR
       )
     }
 
@@ -56,7 +67,7 @@ function useScript(src: string, opts: UseScriptOptions = {}): Status {
     // Note: Even if the script already exists we still need to add
     // event handlers to update the state for *this* hook instance.
     function setStateFromEvent(event: Event) {
-      setStatus(event.type === "load" ? "ready" : "error")
+      setStatus(event.type === "load" ? SCRIPT_READY : SCRIPT_ERROR)
     }
 
     // Add event listeners
@@ -70,7 +81,7 @@ function useScript(src: string, opts: UseScriptOptions = {}): Status {
         script.removeEventListener("error", setStateFromEvent)
       }
     }
-  }, [src])
+  }, [src, defer])
 
   return status
 }

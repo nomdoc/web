@@ -1,4 +1,4 @@
-import { Attention as AttentionIcon } from "@icon-park/react"
+import { CloseOne as CloseOneIcon } from "@icon-park/react"
 import React from "react"
 import { useFormContext } from "react-hook-form"
 
@@ -54,13 +54,13 @@ function UncontrolledInputError(props: InputErrorProps): JSX.Element {
   const id = `${htmlFor}-error`
 
   return (
-    <div id={id} className="flex mt-2 text-red-600">
-      <AttentionIcon
+    <div id={id} className="flex mt-2">
+      <CloseOneIcon
         theme="filled"
-        className="flex-shrink-0 mt-1 mr-2 h-4 w-4"
+        className="flex-shrink-0 mt-1 mr-2 h-4 w-4 text-red-400"
         aria-hidden="true"
       />
-      <p className="text-base">{message}</p>
+      <p className="text-base text-red-800">{message}</p>
     </div>
   )
 }
